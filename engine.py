@@ -8,7 +8,7 @@ env = clips.Environment()
 router = clips.LoggingRouter()
 env.add_router(router)
 
-# Build templates
+# templates
 env.build("""
 (deftemplate patient
   (slot age-group)
@@ -47,85 +47,55 @@ env.build("""
 )
 """)
 
-# H2: smoker + family history + breathing issue
+# H2: Exposure + long-term illness + breathing issue
 env.build("""
 (defrule high-risk-2
   (declare (salience 40))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (smoking yes)
-           (family-history yes)
-           (breathing-issue yes))
-=>
-  (assert (risk-assessment
-    (risk-level high)
-    (explanation "High risk due to smoking, family history and breathing issues. Further screening is strongly recommended.")))
-)
-""")
-
-# H3: exposure + long-term illness + breathing issue
-env.build("""
-(defrule high-risk-3
-  (declare (salience 40))
-  (not (risk-assessment (risk-level ?l)))
+  (not (risk-assessment (risk-level ?)))
   (patient (exposure yes)
            (long-term-illness yes)
            (breathing-issue yes))
 =>
   (assert (risk-assessment
     (risk-level high)
-    (explanation "High risk due to long-term illness, environmental exposure and breathing problems. Please consult a specialist as soon as possible.")))
+    (explanation "High risk with exposure plus chronic illness and breathing issues. Specialist consultation is recommended.")))
 )
 """)
 
-# H4: older age + multiple risk factors
+# H3: Older + both symptoms (even if risks unknown)
 env.build("""
-(defrule high-risk-4
-  (declare (salience 40))
-  (not (risk-assessment (risk-level ?l)))
+(defrule high-risk-3
+  (declare (salience 39))
+  (not (risk-assessment (risk-level ?)))
   (patient (age-group old)
            (breathing-issue yes)
            (chest-tightness yes))
 =>
   (assert (risk-assessment
     (risk-level high)
-    (explanation "High risk in older age with significant respiratory symptoms. Immediate medical assessment is recommended.")))
+    (explanation "High risk based on older age with significant respiratory symptoms. Urgent medical evaluation is advised.")))
 )
 """)
 
-# H5: severe symptoms (breathing + chest) + ANY major risk factor
+# H4: Severe symptoms + at least TWO major risk factors
 env.build("""
-(defrule high-risk-5
-  (declare (salience 35))
-  (not (risk-assessment (risk-level ?l)))
+(defrule high-risk-4
+  (declare (salience 38))
+  (not (risk-assessment (risk-level ?)))
   (patient (breathing-issue yes)
            (chest-tightness yes)
            (smoking ?s)
            (exposure ?e)
            (family-history ?f)
            (long-term-illness ?ill))
-  (test (or (eq ?s yes)
-            (eq ?e yes)
-            (eq ?f yes)
-            (eq ?ill yes)))
+  (test (>= (+ (if (eq ?s yes) then 1 else 0)
+               (if (eq ?e yes) then 1 else 0)
+               (if (eq ?f yes) then 1 else 0)
+               (if (eq ?ill yes) then 1 else 0)) 2))
 =>
   (assert (risk-assessment
     (risk-level high)
-    (explanation "High risk based on severe respiratory symptoms combined with at least one major risk factor. Please seek urgent medical attention.")))
-)
-""")
-
-# H6: severe symptoms in middle-aged / old even without known risks
-env.build("""
-(defrule high-risk-6
-  (declare (salience 35))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (age-group middle|old)
-           (breathing-issue yes)
-           (chest-tightness yes))
-=>
-  (assert (risk-assessment
-    (risk-level high)
-    (explanation "High risk due to severe respiratory symptoms. Even without known risk factors, urgent medical evaluation is advised.")))
+    (explanation "High risk: severe symptoms with multiple risk factors. Seek medical assessment as soon as possible.")))
 )
 """)
 
@@ -134,11 +104,11 @@ env.build("""
 # M1: respiratory symptoms but non-smoker
 env.build("""
 (defrule medium-risk-1
-  (declare (salience 25))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (smoking no)
-           (breathing-issue yes)
-           (chest-tightness no|yes))
+  (declare (salience 30))
+  (not (risk-assessment (risk-level ?)))
+  (patient (breathing-issue ?b)
+           (chest-tightness ?c))
+  (test (or (eq ?b yes) (eq ?c yes)))
 =>
   (assert (risk-assessment
     (risk-level medium)
@@ -146,41 +116,27 @@ env.build("""
 )
 """)
 
-# M2: smoker + exposure but no current symptoms
+# M2: smoker only
 env.build("""
 (defrule medium-risk-2
-  (declare (salience 25))
-  (not (risk-assessment (risk-level ?l)))
+  (declare (salience 26))
+  (not (risk-assessment (risk-level ?)))
   (patient (smoking yes)
-           (exposure yes)
            (breathing-issue no)
-           (chest-tightness no))
+           (chest-tightness no)
+           (exposure no)
+           (family-history no)
+           (long-term-illness no))
 =>
   (assert (risk-assessment
     (risk-level medium)
-    (explanation "Moderate long-term risk due to smoking and environmental exposure. Consider lifestyle changes and regular screening.")))
+    (explanation "Moderate risk: smoking increases long-term lung disease risk even without symptoms. Quitting and periodic check-ups are advised.")))
 )
 """)
 
-# M3: older age + long-term illness, mild/no symptoms
+# M3: family history + some exposure, but no strong current symptoms
 env.build("""
 (defrule medium-risk-3
-  (declare (salience 25))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (age-group old)
-           (long-term-illness yes)
-           (breathing-issue no|yes)
-           (chest-tightness no))
-=>
-  (assert (risk-assessment
-    (risk-level medium)
-    (explanation "Moderate risk due to age and existing long-term illness. Regular follow-up with a doctor is recommended.")))
-)
-""")
-
-# M4: family history + some exposure, but no strong current symptoms
-env.build("""
-(defrule medium-risk-4
   (declare (salience 25))
   (not (risk-assessment (risk-level ?l)))
   (patient (family-history yes)
@@ -194,59 +150,31 @@ env.build("""
 )
 """)
 
-# M5: smoker without symptoms yet
+# M4: No symptoms, but TWO or more risk factors
+env.build("""
+(defrule medium-risk-4
+  (declare (salience 28))
+  (not (risk-assessment (risk-level ?)))
+  (patient (breathing-issue no)
+           (chest-tightness no)
+           (smoking ?s)
+           (exposure ?e)
+           (family-history ?f)
+           (long-term-illness ?ill))
+  (test (>= (+ (if (eq ?s yes) then 1 else 0)
+               (if (eq ?e yes) then 1 else 0)
+               (if (eq ?f yes) then 1 else 0)
+               (if (eq ?ill yes) then 1 else 0)) 2))
+=>
+  (assert (risk-assessment
+    (risk-level medium)
+    (explanation "Moderate risk: multiple risk factors even without symptoms. Consider screening and lifestyle risk reduction.")))
+)
+""")
+
+# M5: chest tightness alone with at least one risk factor
 env.build("""
 (defrule medium-risk-5
-  (declare (salience 22))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (smoking yes)
-           (breathing-issue no)
-           (chest-tightness no)
-           (family-history no)
-           (long-term-illness no))
-=>
-  (assert (risk-assessment
-    (risk-level medium)
-    (explanation "Moderate long-term risk due to smoking even without current symptoms. Quitting smoking and routine check-ups are strongly advised.")))
-)
-""")
-
-# M6: exposure only (no symptoms, no other risks)
-env.build("""
-(defrule medium-risk-6
-  (declare (salience 22))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (smoking no)
-           (family-history no)
-           (long-term-illness no)
-           (exposure yes)
-           (breathing-issue no)
-           (chest-tightness no))
-=>
-  (assert (risk-assessment
-    (risk-level medium)
-    (explanation "Moderate long-term risk due to sustained environmental exposure. Limiting exposure and periodic screening are recommended.")))
-)
-""")
-
-# M7: long-term illness but currently no respiratory symptoms
-env.build("""
-(defrule medium-risk-7
-  (declare (salience 22))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (long-term-illness yes)
-           (breathing-issue no)
-           (chest-tightness no))
-=>
-  (assert (risk-assessment
-    (risk-level medium)
-    (explanation "Moderate risk due to existing long-term illness even without acute symptoms. Continuous medical follow-up is important.")))
-)
-""")
-
-# M8: chest tightness alone with at least one risk factor
-env.build("""
-(defrule medium-risk-8
   (declare (salience 22))
   (not (risk-assessment (risk-level ?l)))
   (patient (breathing-issue no)
@@ -266,50 +194,26 @@ env.build("""
 )
 """)
 
-# M9: age + exposure with no symptoms
+# M6: Older + at least one risk factor (even without symptoms)
 env.build("""
-(defrule medium-risk-9
-  (declare (salience 24))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (age-group middle|old)
-           (exposure yes)
+(defrule medium-risk-6
+  (declare (salience 27))
+  (not (risk-assessment (risk-level ?)))
+  (patient (age-group old)
            (breathing-issue no)
-           (chest-tightness no))
+           (chest-tightness no)
+           (smoking ?s)
+           (exposure ?e)
+           (family-history ?f)
+           (long-term-illness ?ill))
+  (test (>= (+ (if (eq ?s yes) then 1 else 0)
+               (if (eq ?e yes) then 1 else 0)
+               (if (eq ?f yes) then 1 else 0)
+               (if (eq ?ill yes) then 1 else 0)) 1))
 =>
   (assert (risk-assessment
     (risk-level medium)
-    (explanation "Moderate risk due to age and environmental exposure even without symptoms. Preventive screening is recommended.")))
-)
-""")
-
-# M10: family history
-env.build("""
-(defrule medium-risk-10
-  (declare (salience 23))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (family-history yes)
-           (smoking no)
-           (exposure no)
-           (breathing-issue no)
-           (chest-tightness no))
-=>
-  (assert (risk-assessment
-    (risk-level medium)
-    (explanation "Moderate inherited risk due to family history. Regular monitoring is advised even without symptoms.")))
-)
-""")
-
-# M11: chest tightness
-env.build("""
-(defrule medium-risk-11
-  (declare (salience 23))
-  (not (risk-assessment (risk-level ?l)))
-  (patient (chest-tightness yes)
-           (breathing-issue no))
-=>
-  (assert (risk-assessment
-    (risk-level medium)
-    (explanation "Moderate risk due to chest tightness. Clinical evaluation is recommended to rule out underlying issues.")))
+    (explanation "Moderate risk: older age with at least one risk factor. Regular monitoring and screening are recommended.")))
 )
 """)
 
@@ -321,13 +225,15 @@ env.build("""
   (declare (salience 15))
   (not (risk-assessment (risk-level ?l)))
   (patient (smoking no)
+           (exposure no)
+           (long-term-illness no)
            (breathing-issue no)
            (chest-tightness no)
            (family-history no))
 =>
   (assert (risk-assessment
     (risk-level low)
-    (explanation "Low risk based on your answers. Maintain a healthy lifestyle and regular check-ups.")))
+    (explanation "Low risk as no symptoms and no major risk factors reported. Maintain a healthy lifestyle and routine check-ups.")))
 )
 """)
 
@@ -417,7 +323,7 @@ env.build("""
 =>
   (assert (risk-assessment
     (risk-level medium)
-    (explanation "Risk cannot be clearly determined from the given information. Please consult a healthcare professional for proper assessment.")))
+    (explanation "Insufficient pattern detected. Defaulting to MEDIUM risk as a precaution. Please consult a healthcare professional.")))
 )
 """)
 
