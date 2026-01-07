@@ -266,6 +266,53 @@ env.build("""
 )
 """)
 
+# M9: age + exposure with no symptoms
+env.build("""
+(defrule medium-risk-9
+  (declare (salience 24))
+  (not (risk-assessment (risk-level ?l)))
+  (patient (age-group middle|old)
+           (exposure yes)
+           (breathing-issue no)
+           (chest-tightness no))
+=>
+  (assert (risk-assessment
+    (risk-level medium)
+    (explanation "Moderate risk due to age and environmental exposure even without symptoms. Preventive screening is recommended.")))
+)
+""")
+
+# M10: family history
+env.build("""
+(defrule medium-risk-10
+  (declare (salience 23))
+  (not (risk-assessment (risk-level ?l)))
+  (patient (family-history yes)
+           (smoking no)
+           (exposure no)
+           (breathing-issue no)
+           (chest-tightness no))
+=>
+  (assert (risk-assessment
+    (risk-level medium)
+    (explanation "Moderate inherited risk due to family history. Regular monitoring is advised even without symptoms.")))
+)
+""")
+
+# M11: chest tightness
+env.build("""
+(defrule medium-risk-11
+  (declare (salience 23))
+  (not (risk-assessment (risk-level ?l)))
+  (patient (chest-tightness yes)
+           (breathing-issue no))
+=>
+  (assert (risk-assessment
+    (risk-level medium)
+    (explanation "Moderate risk due to chest tightness. Clinical evaluation is recommended to rule out underlying issues.")))
+)
+""")
+
 # Low Risk
 
 # L1: no smoking, no major symptoms, no family history
@@ -321,7 +368,7 @@ env.build("""
 )
 """)
 
-# L4: mild single risk factor without symptoms (e.g. family history only)
+# L4: mild single risk factor without symptoms (family history only)
 env.build("""
 (defrule low-risk-4
   (declare (salience 12))
@@ -336,6 +383,28 @@ env.build("""
   (assert (risk-assessment
     (risk-level low)
     (explanation "Currently low symptom burden but with family history. Staying alert for new symptoms and regular screening is advised.")))
+)
+""")
+
+# L4: single weak factor
+env.build("""
+(defrule low-risk-5
+  (declare (salience 14))
+  (not (risk-assessment (risk-level ?l)))
+  (patient (breathing-issue no)
+           (chest-tightness no)
+           (smoking ?s)
+           (exposure ?e)
+           (family-history ?f)
+           (long-term-illness ?ill))
+  (test (<= (+ (if (eq ?s yes) then 1 else 0)
+               (if (eq ?e yes) then 1 else 0)
+               (if (eq ?f yes) then 1 else 0)
+               (if (eq ?ill yes) then 1 else 0)) 1))
+=>
+  (assert (risk-assessment
+    (risk-level low)
+    (explanation "Low overall risk with at most one minor risk factor and no symptoms.")))
 )
 """)
 

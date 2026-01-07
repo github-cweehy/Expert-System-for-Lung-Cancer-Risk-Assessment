@@ -52,11 +52,9 @@ def on_assess():
     last_assessment["risk_level"] = risk_level
     last_assessment["explanation"] = explanation
 
+# Generate a simple PDF report for one assessment
 def generate_pdf_report(assessment, filepath: str):
-    """
-    Generate a simple PDF report for one assessment.
-    assessment: dict with keys 'inputs', 'risk_level', 'explanation'
-    """
+ 
     inputs = assessment["inputs"]
     risk_level = assessment["risk_level"]
     explanation = assessment["explanation"]
@@ -79,6 +77,7 @@ def generate_pdf_report(assessment, filepath: str):
     # Risk Level box
     c.setFont("Helvetica-Bold", 12)
     c.drawString(50, y, "Risk Level:")
+    
     # Choose color based on risk
     if risk_level == "high":
         box_color = colors.red
